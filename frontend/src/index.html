@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Community Share – Landing</title>
+  <link rel="stylesheet" href="/css/styles.css" />
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="/js/config.js" ></script>
+  <script src="/js/common.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="brand">Community Share</div>
+    <nav>
+      <a class="nav-link" href="/main.html">Explore</a>
+      <a class="nav-link primary" href="/post.html">Post Knowledge</a>
+    </nav>
+  </header>
+
+  <main class="container">
+    <section class="hero">
+      <h1>Share & discover geotagged community knowledge</h1>
+      <p class="muted">Search by city, country,category, or knowledge type and explore on an interactive map.</p>
+
+      <form id="landing-search" class="card search-card">
+        <div class="grid grid-2">
+          <label class="field">
+            <span>Country</span>
+            <input type="text" id="country" placeholder="e.g., New Zealand" />
+          </label>
+          <label class="field">
+            <span>City</span>
+            <input type="text" id="city" placeholder="e.g., Waikato" />
+          </label>
+          <label class="field">
+            <span>Category</span>
+            <select id="category">
+              <option value="">Any</option>
+              <option>Music</option>
+              <option>Plant</option>
+              <option>Art</option>
+              <option>Place</option>
+              <option>Food</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Knowledge Type</span>
+            <select id="type">
+              <option value="">Any</option>
+              <option>Traditional</option>
+              <option>Medicinal</option>
+              <option>Modern</option>
+              <option>Historical</option>
+            </select>
+          </label>
+        </div>
+        <button type="submit" class="btn primary w-full">Search</button>
+      </form>
+    </section>
+  </main>
+
+  <footer class="site-footer">© <span id="year"></span> Community Share</footer>
+
+  <script>
+    const cfg = window.APP_CONFIG;
+    console.log("Config:", cfg.BACKEND_BASE_URL);
+    $(function(){
+      $('#year').text(new Date().getFullYear());
+      $('#landing-search').on('submit', function(e){
+        e.preventDefault();
+        const params = $.param({
+          country: $('#country').val().trim(),
+          city: $('#city').val().trim(),
+          category: $('#category').val(),
+          type: $('#type').val()
+        });
+        $.get(`${cfg.BACKEND_BASE_URL}/search`, params, function(data) {
+        // Store results in sessionStorage for Main Page
+        sessionStorage.setItem("searchResults", JSON.stringify(data));
+        window.location.href = "main.html";
+          });
+		
+      });
+    });
+  </script>
+</body>
+</html>

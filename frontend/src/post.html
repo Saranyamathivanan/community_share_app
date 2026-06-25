@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Community Share – Post Knowledge</title>
+  <link rel="stylesheet" href="/css/styles.css" />
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/aws-amplify/3.3.9-sdk-bump.15/aws-amplify.min.js"></script>
+  
+
+    <!--  app config & shared helpers -->
+  <script src="/js/config.js"></script>
+  <script src="/js/common.js" defer></script>
+  <script src="/js/post.js" defer></script>
+  <style>
+    .gate { display:flex; align-items:center; justify-content:center; min-height:40vh; }
+    .hidden { display:none; }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <div class="brand">Community Share</div>
+    <nav>
+      <a class="nav-link" href="/index.html">Home</a>
+      <a class="nav-link" href="/main.html">Explore</a>
+    </nav>
+  </header>
+
+  <!-- Auth Gate: shown until sign-in completes -->
+  <section id="auth-gate" class="gate">
+    <div>
+      <h3>Checking your sign-in…</h3>
+      <p class="muted">You’ll be redirected to the secure login if needed.</p>
+      <button id="btn-login" class="btn primary hidden">Sign in</button>
+    </div>
+  </section>
+
+  <main id="app" class="container hidden">
+    <section class="card">
+      <h2>Post new knowledge</h2>
+      <form id="post-form" class="grid grid-2">
+        <label class="field">
+          <span>UserID</span>
+          <input id="p-user" readonly />
+        </label>
+        <label class="field">
+          <span>Country</span>
+          <select id="p-country" required>
+            <option value="">Select</option>
+            <option>New Zealand</option>
+            <option>USA</option>
+            <option>Australia</option>
+            <option>India</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>City</span>
+          <input id="p-city" required />
+        </label>
+        <label class="field">
+          <span>GeoLocation (lat,lng)</span>
+          <input id="p-geo" placeholder="-37.7870,175.2793" required />
+        </label>
+        <label class="field">
+          <span>Category</span>
+          <select id="p-category" required>
+            <option value="">Select</option>
+            <option>Music</option>
+            <option>Plant</option>
+            <option>Art</option>
+            <option>Place</option>
+            <option>Food</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Knowledge Type</span>
+          <select id="p-type" required>
+            <option value="">Select</option>
+            <option>Traditional</option>
+            <option>Medicinal</option>
+            <option>Modern</option>
+            <option>Historical</option>
+          </select>
+        </label>
+        <label class="field span-2">
+          <span>Description</span>
+          <input id="p-desc" maxlength="160" required />
+        </label>
+        <label class="field span-2">
+          <span>Detailed Description</span>
+          <textarea id="p-ddesc" rows="5" required></textarea>
+        </label>
+        <label class="field span-2">
+          <span>Image</span>
+          <input type="file" id="p-image" accept="image/*" required />
+        </label>
+        <div class="span-2">
+          <button class="btn primary" type="submit">Submit</button>
+          <a class="btn" href="/main.html">Back to Explore</a>
+          <button id="btn-logout" class="btn" type="button">Sign out</button>
+        </div>
+      </form>
+    </section>
+  </main>
+
+  <footer class="site-footer">© <span id="year3"></span> Community Share</footer>
+</body>
+</html>

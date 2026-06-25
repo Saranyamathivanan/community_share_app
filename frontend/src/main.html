@@ -1,0 +1,62 @@
+<!-- =========================   /main.html (Explore)   ========================= -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Community Share – Explore</title>
+  <link rel="stylesheet" href="/css/styles.css" />
+  <!-- <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@3.6.1/dist/maplibre-gl.css" /> -->
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <!-- AWS Location auth helper -->
+  <link href="https://unpkg.com/maplibre-gl@3.x/dist/maplibre-gl.css" rel="stylesheet" />
+
+</head>
+<body>
+   <script src="https://unpkg.com/maplibre-gl@3.x/dist/maplibre-gl.js"></script>
+    <script src="https://unpkg.com/@aws/amazon-location-utilities-auth-helper@1.x/dist/amazonLocationAuthHelper.js"></script>
+    <script src="/js/config.js"></script>
+  <script src="/js/common.js"></script>
+  <script src="/js/main.js"></script> 
+  <header class="site-header">
+    <div class="brand">Community Share</div>
+    <nav>
+      <a class="nav-link" href="/index.html">Home</a>
+      <a class="nav-link primary" href="/post.html">Post Knowledge</a>
+    </nav>
+  </header>
+
+  <main class="container no-pad">
+    <section class="toolbar card">
+      <form id="filters" class="filters grid grid-5" onsubmit="return false;">
+        <input id="f-country" placeholder="Country" />
+        <input id="f-city" placeholder="City" />
+        <select id="f-category">
+          <option value="">Category</option>
+          <option>Music</option>
+          <option>Plant</option>
+          <option>Art</option>
+          <option>Place</option>
+          <option>Food</option>
+        </select>
+        <select id="f-type">
+          <option value="">Knowledge Type</option>
+          <option>Traditional</option>
+          <option>Medicinal</option>
+          <option>Modern</option>
+          <option>Historical</option>
+        </select>
+        <button class="btn" id="apply-filters" type="button" onclick="window.applyFilters()">Apply</button>
+      </form>
+    </section>
+
+    <section class="layout">
+      <div id="map" class="map"></div>
+      <div id="tiles" class="grid grid-cards"></div>
+    </section>
+  </main>
+
+  <footer class="site-footer">© <span id="year2"></span> Community Share</footer>
+
+</body>
+</html>

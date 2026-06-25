@@ -1,0 +1,287 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "CI/CD for static frontend: GitHub (CodeStar) -> CodePipeline -> CodeBuild -> S3 -> CloudFront invalidation"
+
+Parameters:
+  StackNamePrefix:
+    Type: String
+    Default: community-share
+    Description: Prefix for named resources.
+
+  GitHubRepoOwner:
+    Type: String
+    Default: AkhilM2020
+  GitHubRepoName:
+    Type: String
+    Default: community-share-app
+  GitHubBranch:
+    Type: String
+    Default: main
+
+  HostingBucketName:
+    Type: String
+    Default: community-share-website-hosting
+    Description: Existing S3 bucket that serves the website content (must already exist).
+
+  CloudFrontDistributionId:
+    Type: String
+    Default: E2MEKTS9UA9W5Z
+    Description: CloudFront distribution ID to invalidate after deploy.
+
+  ArtifactsBucketName:
+    Type: String
+    Default: community-share-build-artifacts
+    Description: Private S3 bucket for CodePipeline/CodeBuild artifacts.
+
+Resources:
+  ############################################################
+  # S3: Private artifacts bucket (for pipeline artifacts)
+  ############################################################
+  ArtifactsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref ArtifactsBucketName
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+    DeletionPolicy: Retain
+
+  ArtifactsBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref ArtifactsBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          # Deny insecure transport
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: "*"
+            Action: "s3:*"
+            Resource:
+              - !Sub "arn:aws:s3:::${ArtifactsBucketName}"
+              - !Sub "arn:aws:s3:::${ArtifactsBucketName}/*"
+            Condition:
+              Bool:
+                aws:SecureTransport: "false"
+
+  ############################################################
+  # CodeStar Connection (GitHub) - will be PENDING initially
+  ############################################################
+  CodeStarConnection:
+    Type: AWS::CodeStarConnections::Connection
+    Properties:
+      ConnectionName: codestar-github-connection
+      ProviderType: GitHub
+
+  ############################################################
+  # IAM: CodePipeline Role & Policy
+  ############################################################
+  CodePipelineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${StackNamePrefix}-codepipeline-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: codepipeline.amazonaws.com }
+            Action: sts:AssumeRole
+      Path: "/"
+      Policies:
+        - PolicyName: !Sub "${StackNamePrefix}-codepipeline-inline"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              # Access artifact bucket for pipeline
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:DeleteObject
+                  - s3:ListBucket
+                Resource:
+                  - !Sub "arn:aws:s3:::${ArtifactsBucketName}"
+                  - !Sub "arn:aws:s3:::${ArtifactsBucketName}/*"
+              # Allow start CodeBuild and pass artifact to it
+              - Effect: Allow
+                Action:
+                  - codebuild:BatchGetBuilds
+                  - codebuild:StartBuild
+                Resource: "*"
+              # Allow using the CodeStar connection as pipeline source
+              - Effect: Allow
+                Action:
+                  - codestar-connections:UseConnection
+                Resource: !Ref CodeStarConnection
+              # Allow CloudWatch Logs for pipeline
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: "*"
+
+  ############################################################
+  # IAM: CodeBuild Role & Policy
+  ############################################################
+  CodeBuildRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${StackNamePrefix}-codebuild-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: codebuild.amazonaws.com }
+            Action: sts:AssumeRole
+      Path: "/"
+      Policies:
+        - PolicyName: !Sub "${StackNamePrefix}-codebuild-inline"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              # Read pipeline artifacts bucket (if needed by CODEPIPELINE source)
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:ListBucket
+                Resource:
+                  - !Sub "arn:aws:s3:::${ArtifactsBucketName}"
+                  - !Sub "arn:aws:s3:::${ArtifactsBucketName}/*"
+
+              # Write deployment to hosting bucket + list to compare
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                Resource: !Sub "arn:aws:s3:::${HostingBucketName}"
+
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:DeleteObject
+                  - s3:PutObjectAcl
+                Resource: !Sub "arn:aws:s3:::${HostingBucketName}/*"
+
+              # Optional archival to artifacts bucket prefix (frontend_code/)
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:DeleteObject
+                Resource: !Sub "arn:aws:s3:::${ArtifactsBucketName}/frontend_code/*"
+
+              # CloudFront invalidation
+              # Note: CreateInvalidation only supports Resource="*"
+              - Effect: Allow
+                Action:
+                  - cloudfront:CreateInvalidation
+                Resource: "*"
+
+              # Logs
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: "*"
+
+  ############################################################
+  # CodeBuild Project (sync to S3 + CloudFront invalidate)
+  ############################################################
+  FrontendBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Sub "${StackNamePrefix}CodebuildFrontend"
+      ServiceRole: !GetAtt CodeBuildRole.Arn
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: "aws/codebuild/standard:7.0"
+        Type: LINUX_CONTAINER
+        EnvironmentVariables:
+          - Name: HOSTING_BUCKET
+            Value: !Ref HostingBucketName
+          - Name: ARTIFACTS_BUCKET
+            Value: !Ref ArtifactsBucketName
+          - Name: FRONTEND_PREFIX
+            Value: "frontend_code"
+          - Name: CF_DISTRIBUTION_ID
+            Value: !Ref CloudFrontDistributionId
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: frontend/buildspec.yml
+      TimeoutInMinutes: 15
+      Cache:
+        Type: NO_CACHE
+
+  ############################################################
+  # CodePipeline (Source: GitHub via CodeStar, Build: CodeBuild)
+  ############################################################
+  Pipeline:
+    Type: AWS::CodePipeline::Pipeline
+    DependsOn:
+      - FrontendBuildProject
+      - CodeStarConnection
+    Properties:
+      Name: !Sub "${StackNamePrefix}-pipeline-frontend"
+      RoleArn: !GetAtt CodePipelineRole.Arn
+      ArtifactStore:
+        Type: S3
+        Location: !Ref ArtifactsBucket
+      Stages:
+        - Name: Source
+          Actions:
+            - Name: GitHubSource
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Provider: CodeStarSourceConnection
+                Version: "1"
+              Configuration:
+                ConnectionArn: !Ref CodeStarConnection
+                FullRepositoryId: !Sub "${GitHubRepoOwner}/${GitHubRepoName}"
+                BranchName: !Ref GitHubBranch
+                OutputArtifactFormat: CODE_ZIP
+              OutputArtifacts:
+                - Name: SourceOutput
+
+        - Name: BuildAndDeploy
+          Actions:
+            - Name: SyncToS3AndInvalidateCF
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: "1"
+              Configuration:
+                ProjectName: !Ref FrontendBuildProject
+              InputArtifacts:
+                - Name: SourceOutput
+
+Outputs:
+  CodeStarConnectionArn:
+    Description: ARN of the GitHub CodeStar connection (authorize this in the console after stack creation)
+    Value: !Ref CodeStarConnection
+
+  PipelineName:
+    Description: Name of the CodePipeline
+    Value: !Ref Pipeline
+
+  ArtifactsBucketOut:
+    Description: Name of the artifacts bucket used by the pipeline
+    Value: !Ref ArtifactsBucket
+
+  FrontendBuildProjectName:
+    Description: Name of the CodeBuild project that deploys frontend
+    Value: !Ref FrontendBuildProject

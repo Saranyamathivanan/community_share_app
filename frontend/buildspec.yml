@@ -1,0 +1,27 @@
+version: 0.2
+phases:
+  install:
+    runtime-versions:
+      python: 3.11
+    commands:
+      - echo "Starting frontend deploy build..."
+      - aws --version
+  pre_build:
+    commands:
+      - echo "Validating source layout..."
+      - test -d frontend/src || (echo "ERROR expected path frontend/src not found." && exit 1)
+  build:
+    commands:
+      - echo "Syncing frontend/src to hosting bucket s3://${HOSTING_BUCKET}/"
+      - aws s3 sync frontend/src s3://${HOSTING_BUCKET}/ --delete
+      - echo "Archiving frontend/src to artifacts bucket prefix s3://${ARTIFACTS_BUCKET}/${FRONTEND_PREFIX}/"
+      - aws s3 sync frontend/src s3://${ARTIFACTS_BUCKET}/${FRONTEND_PREFIX}/ --delete
+  post_build:
+    commands:
+      - echo "Creating CloudFront invalidation on distribution ${CF_DISTRIBUTION_ID}..."
+      - aws cloudfront create-invalidation --distribution-id ${CF_DISTRIBUTION_ID} --paths "/*"
+      - echo "Deployment complete."
+artifacts:
+  files:
+    - "**/*"
+  discard-paths: yes

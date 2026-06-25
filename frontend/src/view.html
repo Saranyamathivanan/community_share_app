@@ -1,0 +1,45 @@
+<!-- ========================= /view.html (Enlarged detail) ========================= -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Community Share – View</title>
+<link rel="stylesheet" href="/css/styles.css" />
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+</head>
+<body>
+<header class="site-header">
+<div class="brand">Community Share</div>
+<nav>
+<a class="nav-link" href="/main.html">Back</a>
+</nav>
+</header>
+<main class="container">
+<section class="card">
+<div class="grid grid-2">
+<div>
+<img id="v-img" src="" alt="image" style="width:100%;border-radius:12px" />
+</div>
+<div>
+<h2 id="v-desc"></h2>
+<p id="v-ddesc" class="muted"></p>
+<div class="tile-meta" id="v-meta"></div>
+</div>
+</div>
+</section>
+</main>
+<footer class="site-footer">© <span id="year4"></span> Community Share</footer>
+<script>
+$(function(){
+$('#year4').text(new Date().getFullYear());
+const p = new URLSearchParams(window.location.search);
+const it = Object.fromEntries(p.entries());
+$('#v-img').attr('src', it.S3ImageURL || 'https://placehold.co/800x600?text=No+Image');
+$('#v-desc').text(it.Description || '');
+$('#v-ddesc').text(it.DetailedDescription || '');
+$('#v-meta').text(`User: ${it.UserID || ''} • ${it.City ? it.City+', ' : ''}${it.Country || ''} • ${it.Category || ''} • ${it.KnowledgeType || ''}`);
+});
+</script>
+</body>
+</html>
